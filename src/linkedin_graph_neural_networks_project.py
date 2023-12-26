@@ -603,7 +603,6 @@ gc.collect()
 
 """# GNN"""
 
-!pip install pip install torch-geometric
 
 # Initialize a dictionary to map non-numeric values to unique numerical values
 non_numeric_values = {}
