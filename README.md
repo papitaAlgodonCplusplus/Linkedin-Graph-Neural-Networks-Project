@@ -135,8 +135,8 @@ To run the web app, you'll need to install [Streamlit](https://streamlit.io/) fr
 ```bash
 pip install streamlit
 
-```bash
 streamlit run web_app.py
+```
 
 ## Questions & Feedback
 
