@@ -124,7 +124,7 @@ new connections between nodes.
 
 This proyect can be readed and tested at:
 
-* [IPYNB GoogleColab](https://colab.research.google.com/drive/1_Wu21FzmnHz92wLfQwCLBFe8qbcls89C?usp=sharing)
+* [IPYNB GoogleColab](https://colab.research.google.com/drive/1a1V229rw7qFSgOZEej05VIZKsePwit3a?usp=sharing)
 
 By pressing ``CTRL + F9``
 
