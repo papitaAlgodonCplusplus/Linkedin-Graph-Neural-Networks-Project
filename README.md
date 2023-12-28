@@ -128,6 +128,43 @@ This proyect can be readed and tested at:
 
 By pressing ``CTRL + F9``
 
+### How to run locally (Must have at least 16 RAM and 1GB of free space)
+
+#### Using `pipreqs` to Generate `requirements.txt`
+
+* Step 1: Clone the Project
+
+```bash
+git clone https://github.com/papitaAlgodonCplusplus/Linkedin-Graph-Neural-Networks-Project.git
+cd Linkedin-Graph-Neural-Networks-Project
+```
+
+* Step 2: Install pipreqs
+
+```bash
+pip install pipreqs
+```
+
+* Step 3: Install requirements
+
+```bash
+pip install -r requirements.txt
+```
+
+#### Running the src code
+
+```bash
+cd src
+python3 linkedin_graph_neural_networks_project.py 
+```
+
+#### Running test suite
+
+```bash
+cd src
+python3 test_suite.py 
+```
+
 ## How to the Web App
 
 To run the web app, you'll need to install [Streamlit](https://streamlit.io/) from your command line and run the python app, by typing:
