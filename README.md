@@ -130,7 +130,7 @@ By pressing ``CTRL + F9``
 
 ### How to run locally (Must have at least 16 RAM and 1GB of free space)
 
-#### Using `pipreqs` to Generate `requirements.txt`
+#### Install requirements
 
 * Step 1: Clone the Project
 
