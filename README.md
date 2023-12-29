@@ -10,7 +10,7 @@ This a personal project created by [Alexander Quesada Quesada](https://www.linke
 * XGBoost model that applies regression learning to predict  weights (strength) for all the previously predicted
 new connections between nodes.
 
-**The workflow or project pipeline consists on:**  
+**The workflow of this project consists on:**
 
 1. Loading and Merging the CSV different files into pandas datasets.
 
@@ -34,6 +34,7 @@ new connections between nodes.
 
 11. Public Repository Creating and Web Deployment of this App.
 
+12. Models Pipeline Overview by Visualization [(README)](https://github.com/papitaAlgodonCplusplus/Linkedin-Graph-Neural-Networks-Project/blob/main/README.md)
 
 ## Code
 
@@ -45,6 +46,7 @@ new connections between nodes.
 ![img1](figures/plot1.png)
 ![img2](figures/plot2.png)
 ![img3](figures/plot3.png)
+![img4](figures/plot4.png)
 
 ## Data info
 
@@ -163,6 +165,16 @@ python3 linkedin_graph_neural_networks_project.py
 ```bash
 cd src
 python3 test_suite.py 
+```
+
+## How to the GNNLens2 Main App
+
+To run the web app, you'll need to install [GNNLens2](https://github.com/dmlc/GNNLens2/tree/main) and run the python app, by typing:
+
+```bash
+python3 gnnlens2_main_app.py
+
+gnnlens --logdir sample_gnnlens2_app
 ```
 
 ## How to the Web App

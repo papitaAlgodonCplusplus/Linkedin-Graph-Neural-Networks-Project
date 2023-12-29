@@ -17,7 +17,7 @@ This a personal project created by [Alexander Quesada Quesada](https://www.linke
 * XGBoost model that applies regression learning to predict  weights (strength) for all the previously predicted
 new connections between nodes.
 
-**The workflow or project pipeline consists on:**  
+**The workflow of this project consists on:**  
 
 1. Loading and Merging the CSV different files into pandas datasets.
 
@@ -40,6 +40,8 @@ new connections between nodes.
 10. Use [GNNLens2](https://github.com/dmlc/GNNLens2) for graph visualization, with the Deep Learning Pipeline's results included.
 
 11. Public Repository Creating and Web Deployment of this App.
+
+12. Models Pipeline Overview by Visualization [(README)](https://github.com/papitaAlgodonCplusplus/Linkedin-Graph-Neural-Networks-Project/blob/main/README.md)
 
 # Dataset and Files
 
@@ -603,6 +605,7 @@ gc.collect()
 
 """# GNN"""
 
+!pip install torch-geometric
 
 # Initialize a dictionary to map non-numeric values to unique numerical values
 non_numeric_values = {}
@@ -622,6 +625,10 @@ from torch_geometric.loader import DataLoader
 
 data = Data(x=x, edge_index=all_edges, y=labels)
 print(data) # 48806450 means 20.28% out of all (15520*15520) possible edges
+
+import pickle
+with open('original_linkedin_graph_data', 'wb') as f:
+    pickle.dump(data, f)
 
 # Accessing example values
 print("Node features (x):", data.x[0][:5])  # Print the first 5 features of the first node
@@ -805,13 +812,6 @@ print("\n\n\n")
 print("Node features (x):", testing_data.x[0][-5:])
 print("Edge connections (edge_index):", testing_data.edge_index[:, -5:])
 print("Edge labels (y):", testing_data.y[-5:])
-
-from torch_geometric.loader import DataLoader
-
-#batch_size = 32
-#test_loader = DataLoader(testing_data, batch_size=batch_size)
-#val_loader = DataLoader(validation_data, batch_size=batch_size)
-#train_loader = DataLoader(training_data, batch_size=batch_size)
 
 """## Model Creation"""
 
@@ -1005,6 +1005,95 @@ fig.show()
 model = Net(num_features, hidden_dim, num_classes)
 model.load_state_dict(torch.load('best_model.pth'))
 
+def train_gnn_model(gnn_model, data, epochs, plot=False, batched = False, name='trained_model.pth'):
+    """
+    Trains a Graph Neural Network (GNN) model using the provided data.
+
+    Args:
+        gnn_model (torch.nn.Module): The GNN model to be trained.
+        data (torch_geometric.data.Data or torch_geometric.data.Batch): The input graph data.
+        epochs (int): The number of training epochs.
+        plot (bool, optional): If True, a loss curve plot will be displayed using Plotly. Default is False.
+        batched (bool, optional): If True, assumes data is a batch of graphs; otherwise, data is a single graph.
+                                 Default is False.
+        name (str, optional): The name of the file to save the trained model. Default is 'trained_model.pth'.
+
+    Returns:
+        None: The function modifies the provided GNN model in-place.
+
+    Example:
+        >>> train_gnn_model(my_gnn_model, my_graph_data, epochs=50, plot=True, batched=False)
+    """
+    criterion = nn.MSELoss()  # Mean Squared Error Loss for regression
+    optimizer = torch.optim.Adam(gnn_model.parameters(), lr=0.001)
+    min_loss = float('inf')
+
+    # Store loss values for plotting
+    losses = []
+
+    if not batched:
+        for epoch in range(epochs):
+            gnn_model.train()
+
+            # Forward pass
+            optimizer.zero_grad()
+            z = gnn_model.encode(data.x, data.edge_index)
+            neg_edge_index = negative_sampling(edge_index=data.edge_index, num_nodes=data.num_nodes,
+                                            num_neg_samples=None, method='sparse')
+            edge_label_index = torch.cat([data.edge_index, neg_edge_index], dim=-1, )
+            edge_label = torch.cat([torch.ones(data.edge_index.size(1)), torch.zeros(neg_edge_index.size(1))],
+                                dim=0)
+            out = gnn_model.decode(z, edge_label_index).view(-1)
+            loss = criterion(out, edge_label)
+            loss.backward()
+            optimizer.step()
+            if loss.item() < min_loss:
+                min_loss = loss.item()
+                torch.save(gnn_model.state_dict(), name)
+
+            # Append current loss to the list
+            losses.append(loss.item())
+            print(f'Epoch {epoch + 1}/{epochs}, Loss: {loss.item()}')
+
+        # Plotting the loss curve using Plotly
+        if plot:
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=list(range(1, epochs + 1)), y=losses, mode='lines+markers'))
+            fig.update_layout(title='Loss Over Epochs', xaxis_title='Epoch', yaxis_title='Loss')
+            fig.show()
+
+    else:
+        for epoch in range(epochs):
+            gnn_model.train()
+
+            for i in len(data):
+                # Forward pass
+                optimizer.zero_grad()
+                z = gnn_model.encode(data[i].x, data[i].edge_index)
+                neg_edge_index = negative_sampling(edge_index=data[i].edge_index, num_nodes=data[i].num_nodes,
+                                                num_neg_samples=None, method='sparse')
+                edge_label_index = torch.cat([data[i].edge_index, neg_edge_index], dim=-1, )
+                edge_label = torch.cat([torch.ones(data[i].edge_index.size(1)), torch.zeros(neg_edge_index.size(1))],
+                                    dim=0)
+                out = gnn_model.decode(z, edge_label_index).view(-1)
+                loss = criterion(out, edge_label)
+                loss.backward()
+                optimizer.step()
+                if loss.item() < min_loss:
+                    min_loss = loss.item()
+                    torch.save(gnn_model.state_dict(), name)
+
+                # Append current loss to the list
+                losses.append(loss.item())
+                print(f'Epoch {epoch + 1}/{epochs}, Loss: {loss.item()}')
+
+        # Plotting the loss curve using Plotly
+        if plot:
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=list(range(1, epochs + 1)), y=losses, mode='lines+markers'))
+            fig.update_layout(title='Loss Over Epochs', xaxis_title='Epoch', yaxis_title='Loss')
+            fig.show()
+
 """## Evaluation"""
 
 def find_best_threshold(out, edge_label):
@@ -1041,9 +1130,6 @@ def find_best_threshold(out, edge_label):
 
 threshold, error = find_best_threshold(out, edge_label)
 print(threshold, error)
-
-testing_data.x = torch.from_numpy(testing_data.x.astype(float))
-testing_data.edge_index = torch.from_numpy(testing_data.edge_index.astype(float))
 
 testing_data.x = testing_data.x.to(torch.float)
 testing_data.edge_index = testing_data.edge_index.to(torch.int64)
@@ -1091,10 +1177,10 @@ def make_a_prediction(gnn_model, max = 1000000, origin=None, destination=None, p
     pred_edges = []
 
     for i in range(len(subDatas)):
-        z = model.encode(subDatas[i].x, subDatas[i].edge_index)
+        z = gnn_model.encode(subDatas[i].x, subDatas[i].edge_index)
         neg_edge_index = negative_sampling(edge_index = subDatas[i].edge_index, num_nodes = None, \
                                            num_neg_samples = None, method = 'sparse')
-        out = model.decode(z, neg_edge_index)
+        out = gnn_model.decode(z, neg_edge_index)
         pred = ((out > torch.mean(out)*threshold).float()).cpu().numpy()
         found = np.argwhere(pred == 1)
         if printing:
@@ -1139,6 +1225,26 @@ print(x.shape, final_weights_matrix.shape)
 # %%capture
 # !pip install xgboost
 
+del z
+del x_tensor
+del selected_nodes
+del row_mask
+del pred
+del out
+del data
+del edge_index_tensor
+del edge_label_index
+del edge_label
+del edge_index
+del neg_edge_index
+
+gc.collect()
+
+del batch_edge_index
+del batch_data
+del loss
+gc.collect()
+
 """## Training"""
 
 import numpy as np
@@ -1156,9 +1262,9 @@ dtest = xgb.DMatrix(x_test, label=y_test)
 # Define XGBoost parameters
 params = {
     'objective': 'reg:squarederror',
-    'max_depth': 3,  # Maximum depth of a tree.
+    'max_depth': 2,  # Maximum depth of a tree.
     'learning_rate': 0.1,
-    'n_estimators': 100  # Number of trees
+    'n_estimators': 50 # Number of trees
 }
 
 model2 = xgb.train(params, dtrain)
@@ -1174,7 +1280,7 @@ x_test
 
 """## Prediction"""
 
-def make_weight_prediction(xgboost_model ,job, printing = False):
+def make_weight_prediction(xgboost_model ,job, final_weights_matrix, printing = False):
   """
   Make weight predictions using an XGBoost model.
 
@@ -1227,6 +1333,17 @@ sample_data = Data(x=testing_data.x, edge_index=batch_edge_index, y=batch_y)
 testing_data
 
 sample_data
+
+"""Saving this data for Unit Testing"""
+
+import pickle
+with open('unit_testing_graph_data', 'wb') as f:
+    pickle.dump(sample_data, f)
+
+with open('unit_testing_graph_data', 'rb') as f:
+    loaded_data = pickle.load(f)
+
+loaded_data
 
 def predict_edges_and_weights(threshold, xgboost_model, gnn_model, data, printing=False, origin=None, destination=None):
   """
@@ -1313,3 +1430,306 @@ results = predictions_to_df(predictions2)
 
 results
 
+"""## Merging Results
+
+Now I merge the new edges and edge_weights with the original 'sample_data'
+"""
+
+new_edges = torch.tensor([results['Origin'].values, results['Destination'].values])
+new_edges.shape
+
+sample_data.edge_index = torch.cat((sample_data.edge_index , new_edges), dim=1)
+sample_data.edge_index.shape
+
+sample_data.y = torch.cat((torch.from_numpy(sample_data.y), torch.tensor(results['Weight'].values)), dim=0)
+sample_data.y.shape
+
+sample_data
+
+"""# Unit Testing
+
+This Test Suite runs with python3 from the 'src' folder located in the [Official Github Repository of this Project](https://github.com/papitaAlgodonCplusplus/Linkedin-Graph-Neural-Networks-Project), instructions of how to run this Unit Test Suite can be found inside the **'README'** file, **'Running test suite'** section.
+"""
+
+# Commented out IPython magic to ensure Python compatibility.
+# %%writefile test_suite
+# 
+# import unittest
+# import gc
+# import numpy as np
+# import pandas as pd
+# import pickle
+# import xgboost as xgb
+# import torch
+# import networkx as nx
+# import torch.nn.functional as F
+# import torch_geometric.transforms as T
+# import torch.nn as nn
+# from torch_geometric.utils import negative_sampling
+# from tqdm import tqdm
+# from torch_geometric.nn import GCNConv
+# from torch_geometric.data import Data
+# 
+# from functions.net_class import Net
+# from functions.model_trainer import train_gnn_model, find_best_threshold, make_weight_prediction, train_xgboost_model
+# 
+# class ModelTesting(unittest.TestCase):
+#     def setUp(self):
+#         print("\nSetting up resources for the test")
+#         self.num_features = 255
+#         self.hidden_dim = 64
+#         self.num_classes = 1
+# 
+#     def test_encoding(self):
+#         gnn_model = Net(self.num_features, self.hidden_dim, self.num_classes)
+#         gnn_model.load_state_dict(torch.load('models/best_model.pth'))
+#         with open('test_data/unit_testing_graph_data', 'rb') as f:
+#             loaded_data = pickle.load(f)
+#             result = gnn_model.encode(loaded_data.x, loaded_data.edge_index)
+#         # Ensure that encoding's output shape is [NUM_NODES, NUM_CLASSES = 1]
+#         self.assertEqual(result.shape, torch.Size([len(loaded_data.x), self.num_classes]))
+# 
+#     def test_decoding(self):
+#         gnn_model = Net(self.num_features, self.hidden_dim, self.num_classes)
+#         gnn_model.load_state_dict(torch.load('models/best_model.pth'))
+#         with open('test_data/unit_testing_graph_data', 'rb') as f:
+#             loaded_data = pickle.load(f)
+#             z = gnn_model.encode(loaded_data.x, loaded_data.edge_index)
+#             neg_edge_index = negative_sampling(edge_index=loaded_data.edge_index, num_nodes=loaded_data.num_nodes,
+#                                            num_neg_samples=None, method='sparse')
+#             edge_label_index = torch.cat([loaded_data.edge_index, neg_edge_index], dim=-1, )
+#             edge_label = torch.cat([torch.ones(loaded_data.edge_index.size(1)), torch.zeros(neg_edge_index.size(1))],
+#                                 dim=0)
+#             # Ensure that edge_label has shape of RNS's shape + NUM_EDGES
+#             self.assertEqual(edge_label.shape[0], loaded_data.edge_index.shape[1] * 2)
+# 
+#             result = gnn_model.decode(z, edge_label_index).view(-1)
+# 
+#             # Ensure that predictions and labels are compatible
+#             self.assertEqual(result.shape[0], edge_label.shape[0])
+# 
+#     def test_RNS(self):
+#         with open('test_data/unit_testing_graph_data', 'rb') as f:
+#             loaded_data = pickle.load(f)
+#             neg_edge_index = negative_sampling(edge_index=loaded_data.edge_index, num_nodes=loaded_data.num_nodes,
+#                                             num_neg_samples=None, method='sparse')
+#             # Ensure that random negative sampling returned torch of shape [(Origin, Destination), NUM_EDGES]
+#             self.assertEqual(neg_edge_index.shape, torch.Size([2, loaded_data.edge_index.shape[1]]))
+#             # Ensure that no random negative sampled edge is a positive one
+#             self.assertEqual(((neg_edge_index[0] == loaded_data.edge_index[0]) & (neg_edge_index[1] == loaded_data.edge_index[1]))\
+#                              .nonzero().sum().item(), 0)
+# 
+#     def test_random_input_handling(self):
+#         gnn_model = Net(5, self.hidden_dim, self.num_classes)
+#         # 10 nodes, 30% probability of edge between each pair of nodes
+#         graph = nx.erdos_renyi_graph(10, p=0.3)
+#         edge_index = torch.tensor(list(graph.edges)).t().contiguous()
+#         # 10 nodes, 5 features
+#         x = torch.randn(10, 5)
+#         random_data = Data(x=x, edge_index=edge_index)
+#         train_gnn_model(gnn_model, random_data, 5)
+# 
+#         z = gnn_model.encode(random_data.x, random_data.edge_index)
+#         self.assertIsNotNone(z)
+#         self.assertFalse(torch.isnan(z).any())
+# 
+#         neg_edge_index = negative_sampling(edge_index = random_data.edge_index, num_nodes = None, \
+#                                            num_neg_samples = None, method = 'sparse')
+# 
+#         out = gnn_model.decode(z, neg_edge_index)
+#         self.assertIsNotNone(out)
+#         self.assertFalse(torch.isnan(out).any())
+# 
+#     def test_gnn_model_accuracy(self):
+#         gnn_model = Net(self.num_features, self.hidden_dim, self.num_classes)
+#         gnn_model.load_state_dict(torch.load('models/best_model.pth'))
+#         with open('test_data/unit_testing_graph_data', 'rb') as f:
+#             loaded_data = pickle.load(f)
+#             z = gnn_model.encode(loaded_data.x, loaded_data.edge_index)
+#             neg_edge_index = negative_sampling(edge_index=loaded_data.edge_index, num_nodes=loaded_data.num_nodes,
+#                                            num_neg_samples=None, method='sparse')
+#             edge_label_index = torch.cat([loaded_data.edge_index, neg_edge_index], dim=-1, )
+#             edge_label = torch.cat([torch.ones(loaded_data.edge_index.size(1)), torch.zeros(neg_edge_index.size(1))],
+#                                 dim=0)
+#             result = gnn_model.decode(z, edge_label_index).view(-1)
+#             threshold, error = find_best_threshold(result, edge_label)
+# 
+#             # Ensure at least 70% accuracy on binary edge predictions
+#             self.assertLessEqual(error, 0.3)
+# 
+#     def test_xgboost_accuracy(self):
+#         # 50 nodes, 30 features
+#         x = np.random.rand(50, 30)
+# 
+#         # Set the first column to be the row indices
+#         x[:, 0] = np.arange(50)
+# 
+#         # Convert values in the second to the last columns to 0 or 1
+#         x[:, 1:] = np.random.choice([0, 1], size=(50, 29))
+# 
+#         # Generate random weights matrix
+#         original_weights_matrix = np.random.rand(50, 30)
+# 
+#         train_xgboost_model(x, original_weights_matrix)
+#         xgboost_model = xgb.Booster()
+#         xgboost_model.load_model('models/xgboost_model_unit_testing.json')
+#         resulting_weights, mean_error = make_weight_prediction(0, original_weights_matrix, xgboost_model, \
+#                                                                 np.array([original_weights_matrix[0]]), False, True)
+# 
+#         # Ensure at least 95% accuracy on edges weights predictions
+#         self.assertGreaterEqual(1-mean_error, 0.95)
+# 
+#     def tearDown(self):
+#         print("\nCleaning up resources after the test")
+#         del self.num_features
+#         del self.num_classes
+#         del self.hidden_dim
+#         gc.collect()
+# 
+# def layer_test():
+#     suite = unittest.TestSuite()
+#     suite.addTest(ModelTesting('test_encoding'))
+#     suite.addTest(ModelTesting('test_RNS'))
+#     suite.addTest(ModelTesting('test_decoding'))
+#     return suite
+# 
+# def compatibility_test():
+#     suite = unittest.TestSuite()
+#     suite.addTest('test_random_input_handling')
+#     return suite
+# 
+# def accuracy_test():
+#     suite = unittest.TestSuite()
+#     suite.addTest('test_gnn_model_accuracy')
+#     suite.addTest('test_xgboost_accuracy')
+#     return suite
+# 
+# if __name__ == '__main__':
+#     test_loader = unittest.TestLoader()
+#     test_suite = test_loader.discover('.')
+# 
+#     runner = unittest.TextTestRunner()
+#     runner.run(test_suite)
+
+"""# GNNLens2"""
+
+# Commented out IPython magic to ensure Python compatibility.
+# %%capture
+# !pip install Flask==2.0.3
+# !pip install gnnlens
+# !pip install dgl
+
+print(dgl.__version__)
+
+"""## Data Generation"""
+
+edge_index = testing_data.edge_index
+start_idx = 14000
+end_idx = 15000
+
+# Create a boolean mask for rows where values are within the range [start_idx, end_idx]
+row_mask = (edge_index[0, :] >= start_idx) & (edge_index[0, :] < end_idx) \
+        & (edge_index[1, :] >= start_idx) & (edge_index[1, :] < end_idx)
+
+# Apply the boolean mask to filter rows
+batch_edge_index = edge_index[:, row_mask]
+batch_y = testing_data.y[row_mask]
+batch_x = testing_data.x[start_idx:end_idx, :]
+
+# Create a new Data object for sampling
+sample_gnnlens2_data = Data(x=batch_x, edge_index=batch_edge_index, y=batch_y)
+
+# Nodes of this Data have index 0 to 1000
+sample_gnnlens2_data.edge_index = sample_gnnlens2_data.edge_index - start_idx
+
+sample_gnnlens2_data
+
+import pickle
+with open('sample_gnnlens2_data', 'wb') as f:
+    pickle.dump(sample_gnnlens2_data, f)
+
+predictions = predict_edges_and_weights(threshold, model2, model, sample_gnnlens2_data, printing=True)
+
+results = predictions_to_df(predictions)
+
+results
+
+
+
+new_edges = torch.tensor([results['Origin'].values, results['Destination'].values])
+new_edges.shape
+
+sample_gnnlens2_data.edge_index = torch.cat((sample_gnnlens2_data.edge_index , new_edges), dim=1)
+sample_gnnlens2_data.edge_index.shape
+
+sample_gnnlens2_data.y = torch.cat((torch.from_numpy(sample_gnnlens2_data.y), torch.tensor(results['Weight'].values)), dim=0)
+sample_gnnlens2_data.y.shape
+
+import pickle
+with open('predicted_new_data', 'wb') as f:
+    pickle.dump(sample_gnnlens2_data, f)
+
+"""## Script"""
+
+# Commented out IPython magic to ensure Python compatibility.
+# %%writefile gnnlens2_main_app.py
+# import gnnlens
+# import torch
+# import pickle
+# import shutil
+# import os
+# from torch_geometric.data import Data
+# from dgl import DGLGraph
+# from gnnlens import Writer
+# import numpy as numpy
+# 
+# # Data(x=[15520, 255], edge_index=[2, 9692], y=[9692])
+# with open('test_data/sample_gnnlens2_data', 'rb') as f:
+#     original_data = pickle.load(f)
+# original_data.edge_attr = torch.from_numpy(original_data.y)
+# original_data.y = None
+# 
+# # Data(x=[15520, 255], edge_index=[2, 13051], y=[13051])
+# with open('test_data/predicted_new_data', 'rb') as f:
+#     predicted_new_data = pickle.load(f)
+# predicted_new_data.edge_attr = predicted_new_data.y
+# predicted_new_data.y = None
+# 
+# # Function to convert torch_geometric Data to DGLGraph
+# def torch_geometric_to_dgl(data):
+#     dgl_graph = DGLGraph()
+#     dgl_graph.add_nodes(data.num_nodes)
+#     dgl_graph.add_edges(data.edge_index[0], data.edge_index[1])
+# 
+#     # Copy node features
+#     dgl_graph.ndata['x'] = data.x
+# 
+#     # Copy edge features if available
+#     if 'edge_attr' in data:
+#         dgl_graph.edata['edge_attr'] = data.edge_attr
+# 
+#     return dgl_graph
+# 
+# original_graph = torch_geometric_to_dgl(original_data)
+# predicted_graph = torch_geometric_to_dgl(predicted_new_data)
+# 
+# if os.path.exists("sample_gnnlens2_app"):
+#     try:
+#         shutil.rmtree("sample_gnnlens2_app")
+#     except Exception as e:
+#         print(f"Error: Unable to delete the folder 'sample_gnnlens2_app'.")
+#         print(e)
+# 
+# # Specify the path to create a new directory for dumping data files.
+# writer = Writer('sample_gnnlens2_app')
+# writer.add_graph(name='Sample DGLGraph Data', graph=original_graph, eweights={"edge_weights": \
+#                                                                          original_data.edge_attr.view(len(original_data.edge_attr))})
+# writer.add_graph(name='Predicted DGLGraph Data', graph=predicted_graph, eweights={"edge_weights": \
+#                                                                          predicted_new_data.edge_attr.view(len(predicted_new_data.edge_attr))})
+# # Finish dumping
+# writer.close()
+
+"""By entering localhost:7777 in your web browser address bar, you can see the GNNLens2 interface like below. 7777 is the default port GNNLens2 uses. You can specify an alternative one by adding --port xxxx after the command line and change the address in the web browser accordingly."""
+
+!python gnnlens2_main_app.py
+!gnnlens --logdir sample_gnnlens2_app
