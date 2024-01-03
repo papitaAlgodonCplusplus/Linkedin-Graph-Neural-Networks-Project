@@ -41,7 +41,7 @@ new connections between nodes.
 > **WARNING:** Please use the Google Colab link for running the code as it is the optimal choice in terms of resources, comfort and error-free guarantee.
 
 - [(Google Colab) Implementation for running and testing](https://colab.research.google.com/drive/1a1V229rw7qFSgOZEej05VIZKsePwit3a?usp=sharing)
-- [Source code](src/Linkedin_Graph_Neural_Networks_Project.ipynb)
+- [Source code](src/ipynb/Linkedin_Graph_Neural_Networks_Project.ipynb)
   
 ![img1](figures/plot1.png)
 ![img2](figures/plot2.png)
@@ -167,7 +167,7 @@ cd src
 python3 test_suite.py 
 ```
 
-## How to the GNNLens2 Main App
+## How to run the GNNLens2 Main App
 
 To run the web app, you'll need to install [GNNLens2](https://github.com/dmlc/GNNLens2/tree/main) and run the python app, by typing:
 
@@ -177,7 +177,7 @@ python3 gnnlens2_main_app.py
 gnnlens --logdir sample_gnnlens2_app
 ```
 
-## How to the Web App
+## How to run the Web App
 
 To run the web app, you'll need to install [Streamlit](https://streamlit.io/) from your command line and run the python app, by typing:
 
