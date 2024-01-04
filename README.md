@@ -179,6 +179,8 @@ gnnlens --logdir sample_gnnlens2_app
 
 ## How to run the Web App
 
+![img5](figures/plot5.png)
+
 To run the web app, you'll need to install [Streamlit](https://streamlit.io/) from your command line and run the python app, by typing:
 
 ```bash
@@ -186,6 +188,11 @@ pip install streamlit
 
 streamlit run web_app.py
 ```
+
+
+## Linkedin Graph Neural App | Backend Overview
+
+![img6](figures/plot6.png)
 
 ## Questions & Feedback
 
